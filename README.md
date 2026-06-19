@@ -28,7 +28,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full design rationale
 | **L6b** | [`aurax.l6_risk.allocation`](src/aurax/l6_risk) | Dirichlet-policy allocator (optional, Roadmap v3) | 🧱 scaffolded |
 | **L7** | [`aurax.l7_execution`](src/aurax/l7_execution) | MT5 orders + spread/news/slippage guards | 🧱 scaffolded |
 | **L8** | [`aurax.l8_monitoring`](src/aurax/l8_monitoring) | Telegram · dashboard · model-decay detection | 🧱 scaffolded |
-| — | [`aurax.validation`](src/aurax/validation) | **CPCV** (purge + embargo) · deflated Sharpe · walk-forward gate | 🧱 scaffolded |
+| — | [`aurax.validation`](src/aurax/validation) | **CPCV** (purge+embargo) · purged-KFold OOF · walk-forward · holdout · cost-adjusted baselines · deflated Sharpe · **Go/No-Go** | ✅ implemented |
 
 `✅ implemented` = working code + tests · `🧱 scaffolded` = typed interfaces,
 docstrings and `NotImplementedError` stubs ready for the next build phase
@@ -75,7 +75,8 @@ Aura-x/
 │   ├── l0_data/         # ✅ MT5 client, ingestion, TimescaleDB storage
 │   ├── l1_features/     # ✅ volatility / trend-memory / cross-pair / session
 │   ├── l4_labeling/     # ✅ triple-barrier, uniqueness, trend-scanning
-│   ├── l2_regime ... l8_monitoring, validation/   # 🧱 scaffolds
+│   ├── validation/      # ✅ CPCV, walk-forward, holdout, baselines, deflated Sharpe
+│   ├── l2_regime ... l8_monitoring/   # 🧱 scaffolds
 │   └── api/             # FastAPI app (health, data, features, labels)
 ├── mql5/                # MT5 Expert Advisor + includes (execution side)
 ├── scripts/             # ingest / build_features / make_labels entry points
@@ -92,7 +93,10 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
 # 2. Run the tests for the implemented layers
-pytest                      # L0 transforms, L1 features, L4 labels
+pytest                      # L0 transforms, L1 features, L4 labels, validation gate
+
+# 2b. Run the validation gate end-to-end on synthetic data (no DB/MT5 needed)
+python -m scripts.validate --demo     # expect NO-GO — the gate rejecting noise
 
 # 3. Spin up TimescaleDB and apply migrations
 docker compose up -d db     # migrations in ./sql auto-run on first boot
@@ -109,6 +113,29 @@ python -m scripts.make_labels
 > can be developed and tested anywhere; only live ingestion/execution needs MT5.
 
 ---
+
+## Validation gate (the gatekeeper)
+
+Nothing reaches Layer 7 without clearing [`aurax.validation`](src/aurax/validation).
+The harness implements the §5 protocol end-to-end:
+
+- **CPCV** with purge + embargo, and **purged k-fold** for out-of-fold predictions
+  (the exact input the L5 meta-model must train on — `oof_predict`).
+- **Walk-forward** (anchored/rolling) + a final **never-touched holdout**.
+- **Cost-adjusted** event backtest (spread + slippage + commission) reported
+  **against three baselines** — majority-class, Buy-and-Hold, random-entry.
+- **Deflated Sharpe** discounting for the number of configurations tried.
+- A single **Go/No-Go** `ValidationReport` with explicit reasons.
+
+```python
+from aurax.validation import run_validation, ValidationConfig
+report = run_validation(MakeModel, X, y, t1=t1, ret=ret, labels=labels, close=close)
+print(report.summary())     # ✅ GO / ⛔ NO-GO + CPCV/WF/holdout/baselines/DSR
+```
+
+> **Build the validation harness before risking capital** — it is built first
+> here on purpose. On random-walk data the gate correctly returns **NO-GO**: a
+> seductive CPCV Sharpe collapses under walk-forward, holdout and deflation.
 
 ## Honesty note
 

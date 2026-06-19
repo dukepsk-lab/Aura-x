@@ -43,6 +43,9 @@ features:  ## L1 — build the feature matrix
 labels:  ## L4 — generate triple-barrier labels + uniqueness weights
 	python -m scripts.make_labels
 
+validate:  ## §5 — run the CPCV/walk-forward/holdout gate (use ARGS="--demo")
+	python -m scripts.validate $(ARGS)
+
 clean:  ## Remove caches
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
 	rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage coverage.xml

@@ -23,6 +23,31 @@ def sharpe_ratio(returns: np.ndarray, periods_per_year: int | None = None) -> fl
     return sr * np.sqrt(periods_per_year) if periods_per_year else sr
 
 
+def sortino_ratio(
+    returns: np.ndarray, periods_per_year: int | None = None, target: float = 0.0
+) -> float:
+    """Sortino — like Sharpe but penalising only downside deviation below ``target``."""
+    r = np.asarray(returns, dtype=float)
+    if r.size < 2:
+        return float("nan")
+    downside = np.minimum(r - target, 0.0)
+    dd = np.sqrt(np.mean(downside**2))
+    if dd == 0:
+        return float("nan")
+    sr = (r.mean() - target) / dd
+    return sr * np.sqrt(periods_per_year) if periods_per_year else sr
+
+
+def max_drawdown(returns: np.ndarray) -> float:
+    """Maximum peak-to-trough drawdown of the additive equity curve (≤ 0)."""
+    r = np.asarray(returns, dtype=float)
+    if r.size == 0:
+        return 0.0
+    equity = np.cumsum(r)
+    peak = np.maximum.accumulate(equity)
+    return float((equity - peak).min())
+
+
 def cost_adjusted_returns(
     gross: np.ndarray,
     *,
@@ -53,8 +78,12 @@ def probabilistic_sharpe_ratio(
 
 
 def expected_max_sharpe(sharpe_std: float, n_trials: int) -> float:
-    """Expected maximum Sharpe under ``n_trials`` independent configurations."""
-    if n_trials < 1 or sharpe_std <= 0:
+    """Expected maximum Sharpe under ``n_trials`` independent configurations.
+
+    With a single trial there is no multiple-testing inflation, so the expected
+    maximum is 0 (and ``norm.ppf(0)`` is avoided).
+    """
+    if n_trials <= 1 or sharpe_std <= 0:
         return 0.0
     g = _EULER_MASCHERONI
     e = np.e

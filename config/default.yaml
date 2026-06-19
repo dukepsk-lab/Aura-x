@@ -32,9 +32,14 @@ execution:
   news_blackout_minutes: 30         # +/- around high-impact releases
   high_impact_events: [NFP, FOMC, ECB, BoE, CPI]
 
-# Validation gate (CPCV + walk-forward).
+# Validation gate (CPCV + walk-forward + never-touched holdout) — the §5 gatekeeper.
 validation:
   cpcv_n_groups: 6
   cpcv_n_test_groups: 2
   embargo_pct: 0.01                 # embargo as fraction of sample count
-  deflated_sharpe_min: 0.0          # must clear after multiple-testing discount
+  walk_forward_splits: 5            # sequential forward folds
+  walk_forward_mode: anchored       # anchored (expanding) | rolling
+  holdout_pct: 0.2                  # final never-touched tail before any capital
+  periods_per_year: 1512            # H4 bars/year → Sharpe annualization
+  deflated_sharpe_min: 0.95         # P(true SR > 0) after multiple-testing discount
+  n_trials: 1                       # # of configurations tried (set honestly!)

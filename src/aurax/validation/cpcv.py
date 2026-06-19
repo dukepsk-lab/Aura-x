@@ -21,19 +21,42 @@ import numpy as np
 import pandas as pd
 
 
+def _merge_intervals(
+    starts: np.ndarray, ends: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Merge possibly-overlapping ``[start, end]`` intervals into disjoint ones."""
+    order = np.argsort(starts, kind="mergesort")
+    s, e = starts[order], ends[order]
+    cummax_e = np.maximum.accumulate(e)
+    new_group = np.empty(len(s), dtype=bool)
+    new_group[0] = True
+    new_group[1:] = s[1:] > cummax_e[:-1]  # gap → start a new merged interval
+    gids = np.cumsum(new_group) - 1
+    merged_starts = s[new_group]
+    merged_ends = np.empty(gids[-1] + 1, dtype=e.dtype)
+    np.maximum.at(merged_ends, gids, e)
+    return merged_starts, merged_ends
+
+
 def purge_train_times(t1: pd.Series, test_t1: pd.Series) -> pd.Series:
     """Drop train labels whose span overlaps any test label span (AFML 7.1).
 
     ``t1``/``test_t1`` are Series indexed by event start (``t0``) with value the
-    event end. Returns the surviving train spans.
+    event end. Vectorised via interval-merge + stabbing — O(n log n), and (unlike
+    a position bitmap) it needs no shared index, so walk-forward splits work too.
     """
-    train = t1.copy()
-    for t0, t1_i in test_t1.items():
-        starts_within = train[(t0 <= train.index) & (train.index <= t1_i)].index
-        ends_within = train[(t0 <= train) & (train <= t1_i)].index
-        envelops = train[(train.index <= t0) & (t1_i <= train)].index
-        train = train.drop(starts_within.union(ends_within).union(envelops))
-    return train
+    if t1.empty or test_t1.empty:
+        return t1
+    a0 = t1.index.values  # train starts (datetime64)
+    a1 = t1.values  # train ends
+    ms, me = _merge_intervals(test_t1.index.values, test_t1.values)
+    # The only merged interval that can overlap [a0, a1] is the rightmost whose
+    # start ≤ a1; it overlaps iff its end ≥ a0 (disjoint, sorted invariant).
+    idx = np.searchsorted(ms, a1, side="right") - 1
+    overlap = np.zeros(len(a0), dtype=bool)
+    valid = idx >= 0
+    overlap[valid] = me[idx[valid]] >= a0[valid]
+    return t1[~overlap]
 
 
 def apply_embargo(
@@ -42,18 +65,24 @@ def apply_embargo(
     """Drop train observations within ``embargo_bars`` after each test block."""
     if embargo_bars <= 0 or train.empty:
         return train
-    drop: set = set()
     pos = {ts: i for i, ts in enumerate(bar_index)}
+    n = len(bar_index)
+    # Mark embargoed positions (the window strictly after each test label end)
+    # once on a bitmap — O(test·embargo + train) instead of O(train·span·test).
+    embargoed = np.zeros(n, dtype=bool)
     # Iterate the Series directly: this preserves tz-aware Timestamps, whereas
     # `.values` would coerce to tz-naive numpy.datetime64 and miss the dict.
     for t1_i in test_t1:
         end_pos = pos.get(t1_i)
         if end_pos is None:
             continue
-        emb_end = min(end_pos + embargo_bars, len(bar_index) - 1)
-        embargo_span = bar_index[end_pos : emb_end + 1]
-        drop.update(ts for ts in train.index if ts in embargo_span)
-    return train.drop(pd.Index(sorted(drop)))
+        lo, hi = end_pos + 1, min(end_pos + embargo_bars, n - 1)
+        if lo <= hi:
+            embargoed[lo : hi + 1] = True
+    keep = np.fromiter(
+        (not embargoed[pos[ts]] for ts in train.index), dtype=bool, count=len(train)
+    )
+    return train[keep]
 
 
 class CombinatorialPurgedCV:
@@ -101,3 +130,33 @@ class CombinatorialPurgedCV:
                 sorted(pos_of[ts] for ts in surviving.index), dtype=int
             )
             yield train_pos, test_pos
+
+
+class PurgedKFold:
+    """Sequential purged k-fold (AFML 7.3) — each sample in exactly one test fold.
+
+    Unlike CPCV (which tests overlapping group combinations), this gives a clean
+    partition, so it is the tool for generating **out-of-fold predictions** — the
+    exact input the Layer 5 meta-model must train on. Test folds are contiguous;
+    train is everything else with purge + embargo around each test block.
+    """
+
+    def __init__(self, n_splits: int = 5, embargo_pct: float = 0.01) -> None:
+        if n_splits < 2:
+            raise ValueError("n_splits must be >= 2")
+        self.n_splits = n_splits
+        self.embargo_pct = embargo_pct
+
+    def split(self, t1: pd.Series) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+        """Yield ``(train_pos, test_pos)`` with contiguous, non-overlapping tests."""
+        n = len(t1)
+        bar_index = t1.index
+        embargo_bars = int(n * self.embargo_pct)
+        pos_of = {ts: i for i, ts in enumerate(bar_index)}
+
+        for test_pos in np.array_split(np.arange(n), self.n_splits):
+            test_t1 = t1.iloc[test_pos]
+            surviving = purge_train_times(t1, test_t1)
+            surviving = apply_embargo(surviving, test_t1, bar_index, embargo_bars)
+            train_pos = np.array(sorted(pos_of[ts] for ts in surviving.index), dtype=int)
+            yield train_pos, np.sort(test_pos)
