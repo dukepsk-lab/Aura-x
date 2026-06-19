@@ -26,7 +26,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full design rationale
 | **L5** | [`aurax.l5_meta`](src/aurax/l5_meta) | Meta-label TRUST model — calibrated (isotonic/Platt) meta-learner on OOF predictions, P(correct) gate at τ | ✅ implemented |
 | **L6** | [`aurax.l6_risk`](src/aurax/l6_risk) | `RiskManager`: ATR sizing × confidence × **covariance** correlation cap + circuit breaker | ✅ implemented |
 | **L6b** | [`aurax.l6_risk.allocation`](src/aurax/l6_risk) | Dirichlet-policy allocator (optional, Roadmap v3) | 🧱 scaffolded |
-| **L7** | [`aurax.l7_execution`](src/aurax/l7_execution) | MT5 orders + spread/news/slippage guards | 🧱 scaffolded |
+| **L7** | [`aurax.l7_execution`](src/aurax/l7_execution) | Guarded orders (spread/news/slippage), idempotent IDs, retry, ATR stops · Paper/MT5 brokers | ✅ implemented |
 | **L8** | [`aurax.l8_monitoring`](src/aurax/l8_monitoring) | Telegram · dashboard · model-decay detection | 🧱 scaffolded |
 | — | [`aurax.validation`](src/aurax/validation) | **CPCV** (purge+embargo) · purged-KFold OOF · walk-forward · holdout · cost-adjusted baselines · deflated Sharpe · **Go/No-Go** | ✅ implemented |
 
@@ -79,8 +79,9 @@ Aura-x/
 │   ├── l4_labeling/     # ✅ triple-barrier, uniqueness, trend-scanning
 │   ├── l5_meta/         # ✅ calibrated TRUST meta-model (OOF), P(correct) gate
 │   ├── l6_risk/         # ✅ RiskManager: ATR sizing × confidence × correlation cap
+│   ├── l7_execution/    # ✅ guarded orders, idempotent IDs, retry, Paper/MT5 brokers
 │   ├── validation/      # ✅ CPCV, walk-forward, holdout, baselines, deflated Sharpe
-│   ├── l7_execution, l8_monitoring/   # 🧱 scaffolds
+│   ├── l8_monitoring/   # 🧱 scaffold
 │   └── api/             # FastAPI app (health, data, features, labels)
 ├── mql5/                # MT5 Expert Advisor + includes (execution side)
 ├── scripts/             # ingest / build_features / make_labels / validate entry points

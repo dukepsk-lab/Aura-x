@@ -57,12 +57,15 @@ risk:
   assumed_correlation: 0.6          # EURUSD<->GBPUSD correlation for the cap
   max_drawdown_breaker: 0.10        # circuit breaker: de-risk/halt at 10% DD
 
-# Layer 7 execution guards.
+# Layer 7 execution guards + order management.
 execution:
   max_spread_pips: 2.0
   max_slippage_pips: 1.5
   news_blackout_minutes: 30         # +/- around high-impact releases
   high_impact_events: [NFP, FOMC, ECB, BoE, CPI]
+  tp_rr: 1.5                        # take-profit as reward:risk multiple of the stop
+  max_retries: 3                    # retries on transient requotes
+  magic: 990011                     # idempotent strategy id
 
 # Validation gate (CPCV + walk-forward + never-touched holdout) — the §5 gatekeeper.
 validation:
