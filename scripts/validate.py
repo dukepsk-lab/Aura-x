@@ -19,6 +19,7 @@ import pandas as pd
 from aurax.config import get_settings, load_params
 from aurax.enums import Timeframe
 from aurax.l1_features import build_feature_matrix
+from aurax.l2_regime import RegimeConfig, RegimeDetector
 from aurax.l3_primary import PrimaryConfig, PrimarySignalModel, available_backends
 from aurax.l4_labeling import LabelConfig, Labeler
 from aurax.logging import configure_logging, get_logger
@@ -81,6 +82,14 @@ def main() -> None:
     X = features.loc[common]
     lab = labels.loc[common]
 
+    # L2 regime context (fit the HMM on the same features and report the mix).
+    try:
+        det = RegimeDetector(RegimeConfig.from_params(params)).fit(X)
+        mix = det.regime_series(X).value_counts(normalize=True).round(2).to_dict()
+    except Exception as exc:  # noqa: BLE001 - regime context is best-effort here
+        log.warning("regime_fit_failed", err=str(exc))
+        mix = {}
+
     cfg = ValidationConfig.from_params(params)
     cfg.n_trials = args.n_trials
     primary = PrimaryConfig.from_available(params)
@@ -99,6 +108,8 @@ def main() -> None:
     src = "demo synthetic" if args.demo else f"{args.symbol} {tf.value}"
     print(f"\n── Aura-X validation gate · {src} · {len(common):,} events ──")
     print(f"primary members: {list(primary.members)}  (backends: {available_backends()})")
+    if mix:
+        print(f"L2 regime mix  : {mix}")
     print(report.summary())
     if args.demo and not report.passed:
         print("\n(NO-GO on random-walk demo data is expected — the gate is rejecting noise.)")

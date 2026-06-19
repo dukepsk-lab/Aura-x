@@ -20,7 +20,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full design rationale
 |------:|--------|------|--------|
 | **L0** | [`aurax.l0_data`](src/aurax/l0_data) | MT5 → TimescaleDB ingestion (OHLCV H4/D1/M15 + tick/spread) | ✅ implemented |
 | **L1** | [`aurax.l1_features`](src/aurax/l1_features) | ATR · Yang-Zhang · Hurst · KER · cross-pair · session features | ✅ implemented |
-| **L2** | [`aurax.l2_regime`](src/aurax/l2_regime) | HMM + Hurst/KER regime router (trend / range / shock) | 🧱 scaffolded |
+| **L2** | [`aurax.l2_regime`](src/aurax/l2_regime) | Gaussian HMM + Hurst/KER gate + shock stand-down (trend / range / shock) | ✅ implemented |
 | **L3** | [`aurax.l3_primary`](src/aurax/l3_primary) | Primary SIDE model — LightGBM/CatBoost ensemble, regime-conditional, high recall | ✅ implemented |
 | **L4** | [`aurax.l4_labeling`](src/aurax/l4_labeling) | Triple-Barrier (ATR-scaled) + sample-uniqueness weights + trend-scanning | ✅ implemented |
 | **L5** | [`aurax.l5_meta`](src/aurax/l5_meta) | Meta-label TRUST model — calibrated stacking (high precision) | 🧱 scaffolded |
@@ -74,10 +74,11 @@ Aura-x/
 │   ├── db/              # SQLAlchemy engine + repositories
 │   ├── l0_data/         # ✅ MT5 client, ingestion, TimescaleDB storage
 │   ├── l1_features/     # ✅ volatility / trend-memory / cross-pair / session
+│   ├── l2_regime/       # ✅ Gaussian HMM + Hurst/KER gate + shock stand-down
 │   ├── l3_primary/      # ✅ SIDE ensemble (LightGBM/CatBoost/logistic), regime-conditional
 │   ├── l4_labeling/     # ✅ triple-barrier, uniqueness, trend-scanning
 │   ├── validation/      # ✅ CPCV, walk-forward, holdout, baselines, deflated Sharpe
-│   ├── l2_regime, l5_meta ... l8_monitoring/   # 🧱 scaffolds
+│   ├── l5_meta ... l8_monitoring/   # 🧱 scaffolds
 │   └── api/             # FastAPI app (health, data, features, labels)
 ├── mql5/                # MT5 Expert Advisor + includes (execution side)
 ├── scripts/             # ingest / build_features / make_labels / validate entry points

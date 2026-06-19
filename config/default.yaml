@@ -8,12 +8,17 @@ includes:
   - features.yaml
   - labeling.yaml
 
-# Layer 2 regime thresholds (used by the L2 scaffold + referenced in §6 formulas).
+# Layer 2 regime detection (HMM + Hurst/KER gating; referenced in §6 formulas).
 regime:
   hurst_trend_threshold: 0.55
   ker_trend_threshold: 0.30
   shock_atr_percentile: 0.90        # ATR-pct above this => shock => stand down
   hmm_states: 3                     # trending / ranging / high-vol-shock
+  features:                         # L1 columns fed to the regime HMM
+    - vol_realized_vol
+    - tm_hurst
+    - tm_ker
+    - vol_atr_pct
 
 # Layer 3 primary SIDE ensemble. Members blended by weight; Layer 2 regime can
 # override the weights (momentum-leaning in trend, mean-reversion-leaning in range).
