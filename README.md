@@ -27,12 +27,14 @@ See [`docs/architecture.md`](docs/architecture.md) for the full design rationale
 | **L6** | [`aurax.l6_risk`](src/aurax/l6_risk) | `RiskManager`: ATR sizing × confidence × **covariance** correlation cap + circuit breaker | ✅ implemented |
 | **L6b** | [`aurax.l6_risk.allocation`](src/aurax/l6_risk) | Dirichlet-policy allocator (optional, Roadmap v3) | 🧱 scaffolded |
 | **L7** | [`aurax.l7_execution`](src/aurax/l7_execution) | Guarded orders (spread/news/slippage), idempotent IDs, retry, ATR stops · Paper/MT5 brokers | ✅ implemented |
-| **L8** | [`aurax.l8_monitoring`](src/aurax/l8_monitoring) | Telegram · dashboard · model-decay detection | 🧱 scaffolded |
+| **L8** | [`aurax.l8_monitoring`](src/aurax/l8_monitoring) | `Monitor`: fill/breach/regime/decay alerts · rolling Sharpe + calibration-drift → retrain · dashboard | ✅ implemented |
 | — | [`aurax.validation`](src/aurax/validation) | **CPCV** (purge+embargo) · purged-KFold OOF · walk-forward · holdout · cost-adjusted baselines · deflated Sharpe · **Go/No-Go** | ✅ implemented |
 
-`✅ implemented` = working code + tests · `🧱 scaffolded` = typed interfaces,
-docstrings and `NotImplementedError` stubs ready for the next build phase
-(Roadmap v1+).
+**All 8 layers (L0–L8) + the validation gate are implemented** (working code +
+tests). The only remaining scaffold is the optional **L6b** Dirichlet allocator
+(Roadmap v3 — only worthwhile once the universe grows beyond two instruments).
+`✅ implemented` = working code + tests · `🧱 scaffolded` = typed interface +
+`NotImplementedError` stub.
 
 ```mermaid
 flowchart TD
@@ -81,8 +83,8 @@ Aura-x/
 │   ├── l6_risk/         # ✅ RiskManager: ATR sizing × confidence × correlation cap
 │   ├── l7_execution/    # ✅ guarded orders, idempotent IDs, retry, Paper/MT5 brokers
 │   ├── validation/      # ✅ CPCV, walk-forward, holdout, baselines, deflated Sharpe
-│   ├── l8_monitoring/   # 🧱 scaffold
-│   └── api/             # FastAPI app (health, data, features, labels)
+│   ├── l8_monitoring/   # ✅ alerts, decay detection, dashboard (Monitor)
+│   └── api/             # FastAPI app (health · data · features · labels · monitor)
 ├── mql5/                # MT5 Expert Advisor + includes (execution side)
 ├── scripts/             # ingest / build_features / make_labels / validate entry points
 └── tests/               # pytest suite (L0 transforms, L1 features, L4 labels)
@@ -97,8 +99,8 @@ Aura-x/
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-# 2. Run the tests for the implemented layers
-pytest                      # L0 transforms, L1 features, L4 labels, validation gate
+# 2. Run the full test suite (all 8 layers + the validation gate)
+pytest                      # L0–L8 + CPCV/walk-forward/holdout
 
 # 2b. Run the validation gate end-to-end on synthetic data (no DB/MT5 needed)
 #     Uses the real L3 ensemble — logistic member by default; add the GBM backbone

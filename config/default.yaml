@@ -78,3 +78,12 @@ validation:
   periods_per_year: 1512            # H4 bars/year → Sharpe annualization
   deflated_sharpe_min: 0.95         # P(true SR > 0) after multiple-testing discount
   n_trials: 1                       # # of configurations tried (set honestly!)
+
+# Layer 8 monitoring & lifecycle (Telegram secrets come from .env, not here).
+monitoring:
+  drawdown_alert: 0.10              # alert when drawdown breaches this
+  sharpe_window: 60                # rolling cost-adjusted Sharpe window (trades)
+  decay:
+    sharpe_window: 60
+    min_rolling_sharpe: 0.0        # retrain if rolling Sharpe drops below
+    max_calibration_error: 0.10    # retrain if meta-calibration drifts above

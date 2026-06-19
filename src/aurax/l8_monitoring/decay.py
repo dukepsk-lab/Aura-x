@@ -47,16 +47,50 @@ class DecayConfig:
     max_calibration_error: float = 0.10
 
 
+@dataclass
+class DecayReport:
+    """Decay diagnostics + the retrain decision, with explicit reasons."""
+
+    rolling_sharpe: float
+    calibration_error: float
+    sharpe_breached: bool
+    calibration_breached: bool
+
+    @property
+    def retrain_due(self) -> bool:
+        return self.sharpe_breached or self.calibration_breached
+
+    def reasons(self) -> list[str]:
+        out = []
+        if self.sharpe_breached:
+            out.append(f"rolling Sharpe {self.rolling_sharpe:+.2f} below floor")
+        if self.calibration_breached:
+            out.append(f"calibration error {self.calibration_error:.3f} above max")
+        return out
+
+
 class DecayMonitor:
-    """Flag retraining when edge or calibration degrades."""
+    """Flag retraining when edge or meta-calibration degrades."""
 
     def __init__(self, config: DecayConfig | None = None) -> None:
         self.config = config or DecayConfig()
 
-    def should_retrain(self, returns: pd.Series, prob: np.ndarray, outcome: np.ndarray) -> bool:
+    def evaluate(self, returns: pd.Series, prob: np.ndarray, outcome: np.ndarray) -> DecayReport:
+        """Compute the rolling cost-adjusted Sharpe + calibration drift report."""
         cfg = self.config
-        sharpe = rolling_sharpe(returns, cfg.sharpe_window).iloc[-1] if len(returns) else np.nan
+        sharpe = (
+            rolling_sharpe(returns, cfg.sharpe_window).iloc[-1]
+            if len(returns) >= cfg.sharpe_window
+            else float("nan")
+        )
         ece = calibration_error(prob, outcome)
-        sharpe_bad = np.isfinite(sharpe) and sharpe < cfg.min_rolling_sharpe
-        calib_bad = np.isfinite(ece) and ece > cfg.max_calibration_error
-        return bool(sharpe_bad or calib_bad)
+        return DecayReport(
+            rolling_sharpe=float(sharpe),
+            calibration_error=float(ece),
+            sharpe_breached=bool(np.isfinite(sharpe) and sharpe < cfg.min_rolling_sharpe),
+            calibration_breached=bool(np.isfinite(ece) and ece > cfg.max_calibration_error),
+        )
+
+    def should_retrain(self, returns: pd.Series, prob: np.ndarray, outcome: np.ndarray) -> bool:
+        return self.evaluate(returns, prob, outcome).retrain_due
+

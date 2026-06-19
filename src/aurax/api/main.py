@@ -13,7 +13,7 @@ from fastapi import FastAPI
 
 from ..config import get_settings
 from ..logging import configure_logging, get_logger
-from .routes import data, features, health, labels
+from .routes import data, features, health, labels, monitor
 
 log = get_logger(__name__)
 
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
     app.include_router(data.router)
     app.include_router(features.router)
     app.include_router(labels.router)
+    app.include_router(monitor.router)
     return app
 
 
