@@ -22,6 +22,7 @@ from aurax.l1_features import build_feature_matrix
 from aurax.l2_regime import RegimeConfig, RegimeDetector
 from aurax.l3_primary import PrimaryConfig, PrimarySignalModel, available_backends
 from aurax.l4_labeling import LabelConfig, Labeler
+from aurax.l5_meta import MetaConfig, MetaGatedPrimary
 from aurax.logging import configure_logging, get_logger
 from aurax.validation import ValidationConfig, run_validation
 
@@ -63,6 +64,7 @@ def main() -> None:
     ap.add_argument("--symbol", default=params.get("cross_pair", {}).get("leg_a", "EURUSD"))
     ap.add_argument("--timeframe", choices=[t.value for t in Timeframe], default="H4")
     ap.add_argument("--n-trials", type=int, default=1, help="# configurations tried (be honest)")
+    ap.add_argument("--meta", action="store_true", help="gate the primary with the L5 meta-model")
     args = ap.parse_args()
     configure_logging(get_settings().log_level)
 
@@ -83,9 +85,11 @@ def main() -> None:
     lab = labels.loc[common]
 
     # L2 regime context (fit the HMM on the same features and report the mix).
+    regimes = None
     try:
         det = RegimeDetector(RegimeConfig.from_params(params)).fit(X)
-        mix = det.regime_series(X).value_counts(normalize=True).round(2).to_dict()
+        regimes = det.regime_series(X)
+        mix = regimes.value_counts(normalize=True).round(2).to_dict()
     except Exception as exc:  # noqa: BLE001 - regime context is best-effort here
         log.warning("regime_fit_failed", err=str(exc))
         mix = {}
@@ -93,8 +97,21 @@ def main() -> None:
     cfg = ValidationConfig.from_params(params)
     cfg.n_trials = args.n_trials
     primary = PrimaryConfig.from_available(params)
+
+    def make_primary():
+        return PrimarySignalModel(primary)
+
+    if args.meta:  # L3 primary gated by the L5 meta-model
+        ctx = [c for c in ("vol_atr_pct", "vol_realized_vol", "tm_hurst") if c in X.columns]
+        meta_cfg = MetaConfig.from_params(params)
+        make_estimator = lambda: MetaGatedPrimary(  # noqa: E731
+            make_primary, t1=lab["t1"], regimes=regimes, context_cols=ctx, meta_config=meta_cfg
+        )
+    else:
+        make_estimator = make_primary
+
     report = run_validation(
-        lambda: PrimarySignalModel(primary),
+        make_estimator,
         X,
         lab["label"].astype(float),
         t1=lab["t1"],
@@ -106,8 +123,9 @@ def main() -> None:
     )
 
     src = "demo synthetic" if args.demo else f"{args.symbol} {tf.value}"
+    stack = "L3→L5 meta-gated" if args.meta else "L3 primary (ungated)"
     print(f"\n── Aura-X validation gate · {src} · {len(common):,} events ──")
-    print(f"primary members: {list(primary.members)}  (backends: {available_backends()})")
+    print(f"estimator      : {stack}  ·  members {list(primary.members)} (backends {available_backends()})")
     if mix:
         print(f"L2 regime mix  : {mix}")
     print(report.summary())

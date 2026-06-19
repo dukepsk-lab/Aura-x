@@ -37,6 +37,15 @@ primary:
     lightgbm: { n_estimators: 300, learning_rate: 0.05 }
     catboost: { iterations: 300, learning_rate: 0.05 }
 
+# Layer 5 meta-label TRUST model. Calibration makes P(correct) usable as a sizing
+# input; tau gates trades (tuned on cost-adjusted CV); high precision filters
+# false positives to protect the cost budget.
+meta:
+  base: logistic                    # binary base learner
+  calibration: isotonic             # isotonic | sigmoid (Platt) | none
+  threshold_tau: 0.55               # trade iff P(correct) >= tau
+  cv_folds: 5                       # purged CV folds for calibration + OOF
+
 # Layer 6 risk parameters (referenced by the L6 scaffold).
 risk:
   risk_per_trade: 0.005             # 0.5% of equity at risk per trade

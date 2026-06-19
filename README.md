@@ -23,7 +23,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full design rationale
 | **L2** | [`aurax.l2_regime`](src/aurax/l2_regime) | Gaussian HMM + Hurst/KER gate + shock stand-down (trend / range / shock) | ✅ implemented |
 | **L3** | [`aurax.l3_primary`](src/aurax/l3_primary) | Primary SIDE model — LightGBM/CatBoost ensemble, regime-conditional, high recall | ✅ implemented |
 | **L4** | [`aurax.l4_labeling`](src/aurax/l4_labeling) | Triple-Barrier (ATR-scaled) + sample-uniqueness weights + trend-scanning | ✅ implemented |
-| **L5** | [`aurax.l5_meta`](src/aurax/l5_meta) | Meta-label TRUST model — calibrated stacking (high precision) | 🧱 scaffolded |
+| **L5** | [`aurax.l5_meta`](src/aurax/l5_meta) | Meta-label TRUST model — calibrated (isotonic/Platt) meta-learner on OOF predictions, P(correct) gate at τ | ✅ implemented |
 | **L6** | [`aurax.l6_risk`](src/aurax/l6_risk) | ATR sizing × confidence × correlation cap + circuit breaker | 🧱 scaffolded |
 | **L6b** | [`aurax.l6_risk.allocation`](src/aurax/l6_risk) | Dirichlet-policy allocator (optional, Roadmap v3) | 🧱 scaffolded |
 | **L7** | [`aurax.l7_execution`](src/aurax/l7_execution) | MT5 orders + spread/news/slippage guards | 🧱 scaffolded |
@@ -77,8 +77,9 @@ Aura-x/
 │   ├── l2_regime/       # ✅ Gaussian HMM + Hurst/KER gate + shock stand-down
 │   ├── l3_primary/      # ✅ SIDE ensemble (LightGBM/CatBoost/logistic), regime-conditional
 │   ├── l4_labeling/     # ✅ triple-barrier, uniqueness, trend-scanning
+│   ├── l5_meta/         # ✅ calibrated TRUST meta-model (OOF), P(correct) gate
 │   ├── validation/      # ✅ CPCV, walk-forward, holdout, baselines, deflated Sharpe
-│   ├── l5_meta ... l8_monitoring/   # 🧱 scaffolds
+│   ├── l6_risk ... l8_monitoring/   # 🧱 scaffolds
 │   └── api/             # FastAPI app (health, data, features, labels)
 ├── mql5/                # MT5 Expert Advisor + includes (execution side)
 ├── scripts/             # ingest / build_features / make_labels / validate entry points
