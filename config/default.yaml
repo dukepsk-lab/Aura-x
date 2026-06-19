@@ -46,14 +46,15 @@ meta:
   threshold_tau: 0.55               # trade iff P(correct) >= tau
   cv_folds: 5                       # purged CV folds for calibration + OOF
 
-# Layer 6 risk parameters (referenced by the L6 scaffold).
+# Layer 6 risk & position sizing.
 risk:
   risk_per_trade: 0.005             # 0.5% of equity at risk per trade
   atr_stop_mult: 2.5                # H4 swing stop in [2.0, 3.0] x ATR
   meta_threshold_tau: 0.55          # trade iff P(correct) >= tau (tune on CV)
   kelly_fraction: 0.5               # fractional-Kelly cap on confidence sizing
   max_confidence_mult: 2.0          # hard cap to avoid over-betting miscalibration
-  correlation_cap: 0.015            # max aggregate USD exposure across legs
+  correlation_cap: 0.015            # max aggregate (covariance) risk across legs
+  assumed_correlation: 0.6          # EURUSD<->GBPUSD correlation for the cap
   max_drawdown_breaker: 0.10        # circuit breaker: de-risk/halt at 10% DD
 
 # Layer 7 execution guards.
