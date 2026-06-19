@@ -214,8 +214,9 @@ def run_validation(
         r = _fold_returns(make_estimator, Xd, yd, retd, epd, tr, te, wd, predict_fn, cm)
         path_sr_ann.append(sharpe_ratio(r.to_numpy(), ppy))
         path_sr_raw.append(sharpe_ratio(r.to_numpy()))  # per-event, for DSR
-    cpcv_mean = float(np.nanmean(path_sr_ann)) if path_sr_ann else float("nan")
-    cpcv_std = float(np.nanstd(path_sr_ann)) if path_sr_ann else float("nan")
+    finite = [s for s in path_sr_ann if np.isfinite(s)]  # degenerate folds → NaN Sharpe
+    cpcv_mean = float(np.mean(finite)) if finite else float("nan")
+    cpcv_std = float(np.std(finite)) if finite else float("nan")
 
     # 3) walk-forward forward in time -----------------------------------------
     wf = WalkForwardSplit(cfg.walk_forward_splits, cfg.walk_forward_mode, cfg.embargo_pct)
@@ -244,7 +245,8 @@ def run_validation(
     best_baseline = max(baselines.values()) if baselines else 0.0
 
     # 6) deflated Sharpe (per-event units), discounting trials ----------------
-    sr_std_raw = float(np.nanstd(path_sr_raw)) if path_sr_raw else 0.0
+    finite_raw = [s for s in path_sr_raw if np.isfinite(s)]
+    sr_std_raw = float(np.std(finite_raw)) if finite_raw else 0.0
     dsr = deflated_sharpe_ratio(
         hold_sharpe_raw, n_obs=len(hold_r), n_trials=cfg.n_trials, sharpe_std=sr_std_raw
     )

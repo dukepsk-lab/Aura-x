@@ -71,6 +71,11 @@ def _proba1(estimator: Any, X: pd.DataFrame) -> np.ndarray:
     return p[:, 1] if p.ndim == 2 else p
 
 
+def _default_meta_base() -> LogisticMeta:
+    """Default base learner factory (a module-level fn so the model stays picklable)."""
+    return LogisticMeta()
+
+
 @dataclass
 class MetaConfig:
     base: str = "logistic"            # base learner ('logistic' or injected)
@@ -98,7 +103,7 @@ class MetaLabelModel:
         base_factory: Callable[[], Any] | None = None,
     ) -> None:
         self.config = config or MetaConfig()
-        self._base_factory = base_factory or (lambda: LogisticMeta())
+        self._base_factory = base_factory or _default_meta_base
         self.threshold_ = self.config.threshold_tau
 
     def fit(
