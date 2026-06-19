@@ -209,6 +209,8 @@ def run_validation(
     cpcv = CombinatorialPurgedCV(cfg.cpcv_n_groups, cfg.cpcv_n_test_groups, cfg.embargo_pct)
     path_sr_ann, path_sr_raw = [], []
     for tr, te in cpcv.split(t1d):
+        if len(tr) == 0 or len(te) == 0:
+            continue
         r = _fold_returns(make_estimator, Xd, yd, retd, epd, tr, te, wd, predict_fn, cm)
         path_sr_ann.append(sharpe_ratio(r.to_numpy(), ppy))
         path_sr_raw.append(sharpe_ratio(r.to_numpy()))  # per-event, for DSR
@@ -220,6 +222,7 @@ def run_validation(
     wf_parts = [
         _fold_returns(make_estimator, Xd, yd, retd, epd, tr, te, wd, predict_fn, cm)
         for tr, te in wf.split(t1d)
+        if len(tr) and len(te)
     ]
     wf_returns = pd.concat(wf_parts).sort_index() if wf_parts else pd.Series(dtype=float)
     wf_sharpe = sharpe_ratio(wf_returns.to_numpy(), ppy)

@@ -15,6 +15,23 @@ regime:
   shock_atr_percentile: 0.90        # ATR-pct above this => shock => stand down
   hmm_states: 3                     # trending / ranging / high-vol-shock
 
+# Layer 3 primary SIDE ensemble. Members blended by weight; Layer 2 regime can
+# override the weights (momentum-leaning in trend, mean-reversion-leaning in range).
+# flat_threshold is the up-down margin below which the model abstains — keep it
+# low for high recall (precision is delegated to the L5 meta-model).
+primary:
+  members:
+    lightgbm: 0.6
+    catboost: 0.4
+  flat_threshold: 0.15
+  regime_overrides:
+    trend: { lightgbm: 0.7, catboost: 0.3 }
+    range: { lightgbm: 0.4, catboost: 0.6 }
+    shock: { lightgbm: 0.5, catboost: 0.5 }
+  member_params:
+    lightgbm: { n_estimators: 300, learning_rate: 0.05 }
+    catboost: { iterations: 300, learning_rate: 0.05 }
+
 # Layer 6 risk parameters (referenced by the L6 scaffold).
 risk:
   risk_per_trade: 0.005             # 0.5% of equity at risk per trade

@@ -28,6 +28,9 @@ def test_cpcv_split_count_and_disjoint():
     assert len(splits) == cv.n_splits == 10
     for train_pos, test_pos in splits:
         assert set(train_pos).isdisjoint(set(test_pos))  # never train on test bars
+        # no fold may be empty — the uninitialised-merge bug produced a train=0
+        # fold, which a "no overlap" check would pass vacuously.
+        assert len(train_pos) > 0
 
 
 def test_cpcv_purges_overlapping_labels():

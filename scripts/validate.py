@@ -3,9 +3,10 @@
     python -m scripts.validate --demo                 # synthetic, no DB/MT5 needed
     python -m scripts.validate --symbol EURUSD        # from TimescaleDB ([db] extra)
 
-Until the Layer-3 ensemble lands, a small **linear sign model** stands in as the
-primary so the gatekeeper is runnable now. On random-walk demo data the correct,
-expected verdict is **NO-GO** — that is the gate doing its job (rejecting noise).
+The primary is the real **L3 ensemble** (LightGBM/CatBoost if ``[models]`` is
+installed, else the dependency-free logistic member). On random-walk demo data
+the correct, expected verdict is **NO-GO** — the gate doing its job (rejecting
+noise); a genuine edge would clear CPCV + walk-forward + holdout + deflation.
 """
 
 from __future__ import annotations
@@ -18,32 +19,12 @@ import pandas as pd
 from aurax.config import get_settings, load_params
 from aurax.enums import Timeframe
 from aurax.l1_features import build_feature_matrix
+from aurax.l3_primary import PrimaryConfig, PrimarySignalModel, available_backends
 from aurax.l4_labeling import LabelConfig, Labeler
 from aurax.logging import configure_logging, get_logger
 from aurax.validation import ValidationConfig, run_validation
 
 log = get_logger("scripts.validate")
-
-
-class LinearSignModel:
-    """Placeholder primary (stand-in for L3): weighted least-squares → sign.
-
-    Predicts direction as ``sign(Xβ)`` with β from a (sample-weighted) linear fit
-    of the label on the features. Replace with the L3 ensemble once built.
-    """
-
-    def fit(self, X: pd.DataFrame, y: pd.Series, sample_weight: pd.Series | None = None):
-        a = np.c_[np.ones(len(X)), np.nan_to_num(X.to_numpy(dtype=float))]
-        target = y.to_numpy(dtype=float)
-        if sample_weight is not None:
-            w = np.sqrt(np.clip(sample_weight.to_numpy(dtype=float), 0, None))[:, None]
-            a, target = a * w, target * w[:, 0]
-        self.coef_, *_ = np.linalg.lstsq(a, target, rcond=None)
-        return self
-
-    def predict(self, X: pd.DataFrame) -> np.ndarray:
-        a = np.c_[np.ones(len(X)), np.nan_to_num(X.to_numpy(dtype=float))]
-        return np.sign(a @ self.coef_)
 
 
 def _demo_bars(n: int = 2400, seed: int = 7) -> tuple[pd.DataFrame, pd.Series]:
@@ -102,8 +83,9 @@ def main() -> None:
 
     cfg = ValidationConfig.from_params(params)
     cfg.n_trials = args.n_trials
+    primary = PrimaryConfig.from_available(params)
     report = run_validation(
-        LinearSignModel,
+        lambda: PrimarySignalModel(primary),
         X,
         lab["label"].astype(float),
         t1=lab["t1"],
@@ -116,6 +98,7 @@ def main() -> None:
 
     src = "demo synthetic" if args.demo else f"{args.symbol} {tf.value}"
     print(f"\n── Aura-X validation gate · {src} · {len(common):,} events ──")
+    print(f"primary members: {list(primary.members)}  (backends: {available_backends()})")
     print(report.summary())
     if args.demo and not report.passed:
         print("\n(NO-GO on random-walk demo data is expected — the gate is rejecting noise.)")

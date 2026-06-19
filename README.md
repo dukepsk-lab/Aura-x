@@ -21,7 +21,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full design rationale
 | **L0** | [`aurax.l0_data`](src/aurax/l0_data) | MT5 → TimescaleDB ingestion (OHLCV H4/D1/M15 + tick/spread) | ✅ implemented |
 | **L1** | [`aurax.l1_features`](src/aurax/l1_features) | ATR · Yang-Zhang · Hurst · KER · cross-pair · session features | ✅ implemented |
 | **L2** | [`aurax.l2_regime`](src/aurax/l2_regime) | HMM + Hurst/KER regime router (trend / range / shock) | 🧱 scaffolded |
-| **L3** | [`aurax.l3_primary`](src/aurax/l3_primary) | Primary SIDE model — CNN + LightGBM/CatBoost ensemble (high recall) | 🧱 scaffolded |
+| **L3** | [`aurax.l3_primary`](src/aurax/l3_primary) | Primary SIDE model — LightGBM/CatBoost ensemble, regime-conditional, high recall | ✅ implemented |
 | **L4** | [`aurax.l4_labeling`](src/aurax/l4_labeling) | Triple-Barrier (ATR-scaled) + sample-uniqueness weights + trend-scanning | ✅ implemented |
 | **L5** | [`aurax.l5_meta`](src/aurax/l5_meta) | Meta-label TRUST model — calibrated stacking (high precision) | 🧱 scaffolded |
 | **L6** | [`aurax.l6_risk`](src/aurax/l6_risk) | ATR sizing × confidence × correlation cap + circuit breaker | 🧱 scaffolded |
@@ -74,12 +74,13 @@ Aura-x/
 │   ├── db/              # SQLAlchemy engine + repositories
 │   ├── l0_data/         # ✅ MT5 client, ingestion, TimescaleDB storage
 │   ├── l1_features/     # ✅ volatility / trend-memory / cross-pair / session
+│   ├── l3_primary/      # ✅ SIDE ensemble (LightGBM/CatBoost/logistic), regime-conditional
 │   ├── l4_labeling/     # ✅ triple-barrier, uniqueness, trend-scanning
 │   ├── validation/      # ✅ CPCV, walk-forward, holdout, baselines, deflated Sharpe
-│   ├── l2_regime ... l8_monitoring/   # 🧱 scaffolds
+│   ├── l2_regime, l5_meta ... l8_monitoring/   # 🧱 scaffolds
 │   └── api/             # FastAPI app (health, data, features, labels)
 ├── mql5/                # MT5 Expert Advisor + includes (execution side)
-├── scripts/             # ingest / build_features / make_labels entry points
+├── scripts/             # ingest / build_features / make_labels / validate entry points
 └── tests/               # pytest suite (L0 transforms, L1 features, L4 labels)
 ```
 
@@ -96,6 +97,8 @@ pip install -e ".[dev]"
 pytest                      # L0 transforms, L1 features, L4 labels, validation gate
 
 # 2b. Run the validation gate end-to-end on synthetic data (no DB/MT5 needed)
+#     Uses the real L3 ensemble — logistic member by default; add the GBM backbone
+#     with `pip install -e ".[models]"` (LightGBM/CatBoost).
 python -m scripts.validate --demo     # expect NO-GO — the gate rejecting noise
 
 # 3. Spin up TimescaleDB and apply migrations

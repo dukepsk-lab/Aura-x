@@ -31,10 +31,12 @@ def _merge_intervals(
     new_group = np.empty(len(s), dtype=bool)
     new_group[0] = True
     new_group[1:] = s[1:] > cummax_e[:-1]  # gap → start a new merged interval
-    gids = np.cumsum(new_group) - 1
-    merged_starts = s[new_group]
-    merged_ends = np.empty(gids[-1] + 1, dtype=e.dtype)
-    np.maximum.at(merged_ends, gids, e)
+    seg_starts = np.flatnonzero(new_group)
+    merged_starts = s[seg_starts]
+    # Per-group max end via reduceat (segments are contiguous after the sort).
+    # NB: do NOT use np.empty + maximum.at here — uninitialised datetime64 memory
+    # would survive the max and silently mark every interval as overlapping.
+    merged_ends = np.maximum.reduceat(e, seg_starts)
     return merged_starts, merged_ends
 
 
