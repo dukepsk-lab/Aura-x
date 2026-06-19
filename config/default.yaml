@@ -57,6 +57,24 @@ risk:
   assumed_correlation: 0.6          # EURUSD<->GBPUSD correlation for the cap
   max_drawdown_breaker: 0.10        # circuit breaker: de-risk/halt at 10% DD
 
+# Layer 6b allocation (optional, Roadmap v3) — Dirichlet-policy PPO allocator.
+# Only worthwhile once the universe grows beyond two instruments; until then
+# the §6 rules above (risk_per_trade/correlation_cap) capture most of the value.
+allocation:
+  turnover_penalty: 0.001           # lambda1 - cost proxy on Sum|delta weight|
+  risk_penalty: 0.5                 # lambda2 - penalty on sqrt(w^T Cov w)
+  hidden: 32                        # actor/critic MLP width
+  lr: 0.001
+  gamma: 0.95
+  gae_lambda: 0.90
+  clip_eps: 0.2                     # PPO clipped-surrogate epsilon
+  entropy_coef: 0.001               # exploration bonus vs. simplex-corner collapse
+  value_coef: 0.5
+  epochs_per_update: 8
+  max_grad_norm: 0.5
+  alpha_floor: 0.01                 # keeps Dirichlet concentration away from 0
+  seed: 0
+
 # Layer 7 execution guards + order management.
 execution:
   max_spread_pips: 2.0

@@ -25,19 +25,21 @@ See [`docs/architecture.md`](docs/architecture.md) for the full design rationale
 | **L4** | [`aurax.l4_labeling`](src/aurax/l4_labeling) | Triple-Barrier (ATR-scaled) + sample-uniqueness weights + trend-scanning | ✅ implemented |
 | **L5** | [`aurax.l5_meta`](src/aurax/l5_meta) | Meta-label TRUST model — calibrated (isotonic/Platt) meta-learner on OOF predictions, P(correct) gate at τ | ✅ implemented |
 | **L6** | [`aurax.l6_risk`](src/aurax/l6_risk) | `RiskManager`: ATR sizing × confidence × **covariance** correlation cap + circuit breaker | ✅ implemented |
-| **L6b** | [`aurax.l6_risk.allocation`](src/aurax/l6_risk) | Dirichlet-policy allocator (optional, Roadmap v3) | 🧱 scaffolded |
+| **L6b** | [`aurax.l6_risk.allocation`](src/aurax/l6_risk) | `DirichletAllocator`: Dirichlet-policy **PPO** allocator over the instrument simplex, cost/risk-penalized reward (optional — matters once the universe grows past two instruments) | ✅ implemented |
 | **L7** | [`aurax.l7_execution`](src/aurax/l7_execution) | Guarded orders (spread/news/slippage), idempotent IDs, retry, ATR stops · Paper/MT5 brokers | ✅ implemented |
 | **L8** | [`aurax.l8_monitoring`](src/aurax/l8_monitoring) | `Monitor`: fill/breach/regime/decay alerts · rolling Sharpe + calibration-drift → retrain · dashboard | ✅ implemented |
 | — | [`aurax.validation`](src/aurax/validation) | **CPCV** (purge+embargo) · purged-KFold OOF · walk-forward · holdout · cost-adjusted baselines · deflated Sharpe · **Go/No-Go** | ✅ implemented |
 
 **All 8 layers (L0–L8) + the validation gate are implemented** (working code +
-tests). **Roadmap v1** (core edge) and **v2** (architecture matching — deep
-CNN/PatchTST/SSM ensemble members + automated decay→retrain→gate→promote, in
-[`aurax.lifecycle`](src/aurax/lifecycle)) are both done. The only remaining
-scaffold is the optional **L6b** Dirichlet allocator (**Roadmap v3** — only
-worthwhile once the universe grows beyond two instruments).
-`✅ implemented` = working code + tests · `🧱 scaffolded` = typed interface +
-`NotImplementedError` stub.
+tests), and **Roadmap v1 (core edge), v2 (architecture matching) and v3
+(allocation) are all done.** v2 added deep CNN/PatchTST/SSM ensemble members +
+automated decay→retrain→gate→promote (in [`aurax.lifecycle`](src/aurax/lifecycle));
+v3 promoted **L6b** from a stub to a real Dirichlet-policy PPO allocator. v3's
+other half — expanding the instrument universe beyond EURUSD/GBPUSD (e.g.
+USDJPY, XAUUSD) — is a deliberate, separate decision (new broker specs, MT5
+symbol mapping, cross-pair feature wiring) and is **not** done here; L6b
+itself is written for any N ≥ 2 instruments and is ready for it.
+`✅ implemented` = working code + tests.
 
 ```mermaid
 flowchart TD
@@ -83,7 +85,7 @@ Aura-x/
 │   ├── l3_primary/      # ✅ SIDE ensemble — GBM/logistic + deep CNN/PatchTST/SSM (v2)
 │   ├── l4_labeling/     # ✅ triple-barrier, uniqueness, trend-scanning
 │   ├── l5_meta/         # ✅ calibrated TRUST meta-model (OOF), P(correct) gate
-│   ├── l6_risk/         # ✅ RiskManager: ATR sizing × confidence × correlation cap
+│   ├── l6_risk/         # ✅ RiskManager + L6b DirichletAllocator (PPO, v3)
 │   ├── l7_execution/    # ✅ guarded orders, idempotent IDs, retry, Paper/MT5 brokers
 │   ├── l8_monitoring/   # ✅ alerts, decay detection, dashboard (Monitor)
 │   ├── lifecycle/       # ✅ training pipeline + decay-triggered retrain→gate→promote (v2)
@@ -91,7 +93,7 @@ Aura-x/
 │   └── api/             # FastAPI app (health · data · features · labels · monitor)
 ├── mql5/                # MT5 Expert Advisor + includes (execution side)
 ├── scripts/             # ingest / build_features / make_labels / validate entry points
-└── tests/               # pytest suite (96 tests across L0–L8 + validation + lifecycle)
+└── tests/               # pytest suite (107 tests across L0–L8 + validation + lifecycle)
 ```
 
 ---
