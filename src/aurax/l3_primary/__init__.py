@@ -1,14 +1,16 @@
 """Layer 3 — Primary Signal Model (SIDE): LightGBM/CatBoost ensemble, high recall.
 
 * :class:`PrimarySignalModel` / :class:`PrimaryConfig`  regime-conditional ensemble
-* :class:`SideModel`  member interface (implement + register to add a CNN/PatchTST)
-* :class:`LogisticSide` / :class:`LightGBMSide` / :class:`CatBoostSide`  members
+* :class:`SideModel`  member interface (implement + register to add a member)
+* GBM/logistic members + deep members (:class:`CNNSide` / :class:`PatchTSTSide` /
+  :class:`SSMSide`, Roadmap v2 — lazy torch)
 * :func:`probas_to_side`  recall-oriented decision rule
 """
 
 from __future__ import annotations
 
 from .base import CLASSES, PROBA_COLUMNS, SideModel, probas_to_side
+from .deep import CNNSide, PatchTSTSide, SequenceSideModel, SSMSide
 from .ensemble import PrimaryConfig, PrimarySignalModel
 from .members import (
     MEMBER_REGISTRY,
@@ -18,6 +20,7 @@ from .members import (
     available_backends,
     build_member,
 )
+from .windows import make_sequences
 
 __all__ = [
     "PrimarySignalModel",
@@ -29,6 +32,11 @@ __all__ = [
     "LogisticSide",
     "LightGBMSide",
     "CatBoostSide",
+    "CNNSide",
+    "PatchTSTSide",
+    "SSMSide",
+    "SequenceSideModel",
+    "make_sequences",
     "MEMBER_REGISTRY",
     "build_member",
     "available_backends",

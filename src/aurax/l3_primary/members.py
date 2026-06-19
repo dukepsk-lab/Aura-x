@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from .base import SideModel, align_proba, encode_labels, softmax
+from .deep import CNNSide, PatchTSTSide, SSMSide
 
 
 class LogisticSide(SideModel):
@@ -138,11 +139,15 @@ class CatBoostSide(SideModel):
         return align_proba(self.model_.predict_proba(X), self.classes_, X.index)
 
 
-#: name → member class. Register new members (e.g. a CNN) here.
+#: name → member class. Deep members (cnn/patchtst/ssm) lazy-import torch, so
+#: importing them costs nothing without the `deep` extra.
 MEMBER_REGISTRY: dict[str, type[SideModel]] = {
     "logistic": LogisticSide,
     "lightgbm": LightGBMSide,
     "catboost": CatBoostSide,
+    "cnn": CNNSide,
+    "patchtst": PatchTSTSide,
+    "ssm": SSMSide,
 }
 
 
@@ -162,4 +167,6 @@ def available_backends() -> list[str]:
         ok.append("lightgbm")
     if importlib.util.find_spec("catboost"):
         ok.append("catboost")
+    if importlib.util.find_spec("torch"):
+        ok += ["cnn", "patchtst", "ssm"]
     return ok

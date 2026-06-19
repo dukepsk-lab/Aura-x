@@ -46,6 +46,10 @@ models = [
     "hmmlearn>=0.3",
     "statsmodels>=0.14",
 ]
+# Deep TS ensemble members (Roadmap v2: CNN / PatchTST / SSM). Heavy; opt-in.
+deep = [
+    "torch>=2.2",
+]
 # Layer 0 broker connectivity (Windows-only wheel; optional on purpose)
 mt5 = [
     "MetaTrader5>=5.0.45",
