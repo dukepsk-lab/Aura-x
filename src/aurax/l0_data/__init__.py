@@ -1,0 +1,27 @@
+"""Layer 0 — Data Ingestion & Storage.
+
+MT5 pull of OHLCV (H4 primary, D1 regime context, M15 execution context) plus
+tick/spread history, normalised to a canonical schema and written to TimescaleDB
+— the single source of truth for both training and live inference.
+
+Public surface:
+
+* :class:`MT5Client`        thin, testable wrapper over the MetaTrader5 terminal
+* :func:`rates_to_frame`    normalise raw MT5 rates → canonical OHLCV frame
+* :func:`ticks_to_frame`    normalise raw MT5 ticks → canonical tick frame
+* :class:`Ingestor`         orchestrates pull → normalise → upsert
+"""
+
+from __future__ import annotations
+
+from .ingestion import Ingestor
+from .mt5_client import MT5Client, MT5NotAvailableError
+from .schema import rates_to_frame, ticks_to_frame
+
+__all__ = [
+    "MT5Client",
+    "MT5NotAvailableError",
+    "Ingestor",
+    "rates_to_frame",
+    "ticks_to_frame",
+]

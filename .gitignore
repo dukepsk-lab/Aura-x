@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+secrets/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Data & models (never commit raw market data or trained artifacts)
+/data/*
+!/data/.gitkeep
+artifacts/
+models/*.pkl
+models/*.cbm
+models/*.txt
+models/*.onnx
+*.parquet
+*.feather
+
+# Logs
+logs/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# MQL5 compiled
+*.ex5

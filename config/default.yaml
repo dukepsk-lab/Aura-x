@@ -1,0 +1,40 @@
+# Top-level Aura-X config. Sub-configs are split for clarity and merged at load.
+# Secrets/connection details come from the environment (.env), NOT from here.
+project: aura-x
+version: 0.1.0
+
+includes:
+  - instruments.yaml
+  - features.yaml
+  - labeling.yaml
+
+# Layer 2 regime thresholds (used by the L2 scaffold + referenced in §6 formulas).
+regime:
+  hurst_trend_threshold: 0.55
+  ker_trend_threshold: 0.30
+  shock_atr_percentile: 0.90        # ATR-pct above this => shock => stand down
+  hmm_states: 3                     # trending / ranging / high-vol-shock
+
+# Layer 6 risk parameters (referenced by the L6 scaffold).
+risk:
+  risk_per_trade: 0.005             # 0.5% of equity at risk per trade
+  atr_stop_mult: 2.5                # H4 swing stop in [2.0, 3.0] x ATR
+  meta_threshold_tau: 0.55          # trade iff P(correct) >= tau (tune on CV)
+  kelly_fraction: 0.5               # fractional-Kelly cap on confidence sizing
+  max_confidence_mult: 2.0          # hard cap to avoid over-betting miscalibration
+  correlation_cap: 0.015            # max aggregate USD exposure across legs
+  max_drawdown_breaker: 0.10        # circuit breaker: de-risk/halt at 10% DD
+
+# Layer 7 execution guards.
+execution:
+  max_spread_pips: 2.0
+  max_slippage_pips: 1.5
+  news_blackout_minutes: 30         # +/- around high-impact releases
+  high_impact_events: [NFP, FOMC, ECB, BoE, CPI]
+
+# Validation gate (CPCV + walk-forward).
+validation:
+  cpcv_n_groups: 6
+  cpcv_n_test_groups: 2
+  embargo_pct: 0.01                 # embargo as fraction of sample count
+  deflated_sharpe_min: 0.0          # must clear after multiple-testing discount

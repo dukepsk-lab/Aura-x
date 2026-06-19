@@ -1,0 +1,120 @@
+# Aura-X — ML-Driven Adaptive Trading System
+
+> EURUSD · GBPUSD · **H4** · MT5 execution
+> Python · FastAPI · TimescaleDB · LightGBM / CatBoost / CNN · MQL5
+
+Aura-X is a **layered, defensive** ML trading system built on the meta-labeling
+philosophy: *don't just predict direction — predict whether to act, and size by
+volatility and confidence, not conviction.* A direction model is a noisy idea
+generator; a second model decides whether each idea is worth risking capital on;
+volatility decides how much; a regime layer decides which behavior is even
+appropriate right now.
+
+See [`docs/architecture.md`](docs/architecture.md) for the full design rationale.
+
+---
+
+## The 8-Layer Pipeline
+
+| Layer | Module | Role | Status |
+|------:|--------|------|--------|
+| **L0** | [`aurax.l0_data`](src/aurax/l0_data) | MT5 → TimescaleDB ingestion (OHLCV H4/D1/M15 + tick/spread) | ✅ implemented |
+| **L1** | [`aurax.l1_features`](src/aurax/l1_features) | ATR · Yang-Zhang · Hurst · KER · cross-pair · session features | ✅ implemented |
+| **L2** | [`aurax.l2_regime`](src/aurax/l2_regime) | HMM + Hurst/KER regime router (trend / range / shock) | 🧱 scaffolded |
+| **L3** | [`aurax.l3_primary`](src/aurax/l3_primary) | Primary SIDE model — CNN + LightGBM/CatBoost ensemble (high recall) | 🧱 scaffolded |
+| **L4** | [`aurax.l4_labeling`](src/aurax/l4_labeling) | Triple-Barrier (ATR-scaled) + sample-uniqueness weights + trend-scanning | ✅ implemented |
+| **L5** | [`aurax.l5_meta`](src/aurax/l5_meta) | Meta-label TRUST model — calibrated stacking (high precision) | 🧱 scaffolded |
+| **L6** | [`aurax.l6_risk`](src/aurax/l6_risk) | ATR sizing × confidence × correlation cap + circuit breaker | 🧱 scaffolded |
+| **L6b** | [`aurax.l6_risk.allocation`](src/aurax/l6_risk) | Dirichlet-policy allocator (optional, Roadmap v3) | 🧱 scaffolded |
+| **L7** | [`aurax.l7_execution`](src/aurax/l7_execution) | MT5 orders + spread/news/slippage guards | 🧱 scaffolded |
+| **L8** | [`aurax.l8_monitoring`](src/aurax/l8_monitoring) | Telegram · dashboard · model-decay detection | 🧱 scaffolded |
+| — | [`aurax.validation`](src/aurax/validation) | **CPCV** (purge + embargo) · deflated Sharpe · walk-forward gate | 🧱 scaffolded |
+
+`✅ implemented` = working code + tests · `🧱 scaffolded` = typed interfaces,
+docstrings and `NotImplementedError` stubs ready for the next build phase
+(Roadmap v1+).
+
+```mermaid
+flowchart TD
+    A["L0 · Ingestion<br/>MT5 → TimescaleDB"] --> B["L1 · Features"]
+    B --> C["L2 · Regime"]
+    C --> D["L3 · Primary (SIDE)"]
+    D --> E["L5 · Meta (TRUST)"]
+    E --> F["L6 · Risk & Sizing"]
+    F --> G["L6b · Allocation"]
+    G --> H["L7 · Execution"]
+    H --> I["L8 · Monitoring"]
+    L4["L4 · Labeling (TRAIN ONLY)"] -.trains.-> D
+    L4 -.trains.-> E
+    CPCV["CPCV Validation"] -.gates.-> H
+```
+
+### Training vs. inference paths (kept strictly separate)
+
+- **Training:** `L0 → L1 → L4 (labels+weights) → L2/L3 (fit primary) → L5 (fit meta on out-of-fold preds) → CPCV`
+- **Inference:** `L0 → L1 → L2 → L3 → L5 → L6 → L6b → L7 → L8`
+
+Triple-Barrier and CPCV exist **only** in training. ATR sizing, meta-gating and
+execution guards run live. The meta-model is trained on the primary model's
+**out-of-fold** predictions — never in-sample.
+
+---
+
+## Repository layout
+
+```
+Aura-x/
+├── config/              # YAML config: instruments, features, labeling, defaults
+├── docs/                # architecture.md (source of truth)
+├── sql/                 # TimescaleDB migrations (hypertables, continuous aggregates)
+├── src/aurax/
+│   ├── config.py        # pydantic-settings loader (env + YAML)
+│   ├── enums.py         # Side, Regime, Timeframe, Session, BarrierTouch
+│   ├── types.py         # shared dataclasses (Bar, FeatureVector, Label, ...)
+│   ├── db/              # SQLAlchemy engine + repositories
+│   ├── l0_data/         # ✅ MT5 client, ingestion, TimescaleDB storage
+│   ├── l1_features/     # ✅ volatility / trend-memory / cross-pair / session
+│   ├── l4_labeling/     # ✅ triple-barrier, uniqueness, trend-scanning
+│   ├── l2_regime ... l8_monitoring, validation/   # 🧱 scaffolds
+│   └── api/             # FastAPI app (health, data, features, labels)
+├── mql5/                # MT5 Expert Advisor + includes (execution side)
+├── scripts/             # ingest / build_features / make_labels entry points
+└── tests/               # pytest suite (L0 transforms, L1 features, L4 labels)
+```
+
+---
+
+## Quickstart
+
+```bash
+# 1. Install the data/feature/labeling stack (no broker or DB needed)
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+
+# 2. Run the tests for the implemented layers
+pytest                      # L0 transforms, L1 features, L4 labels
+
+# 3. Spin up TimescaleDB and apply migrations
+docker compose up -d db     # migrations in ./sql auto-run on first boot
+
+# 4. (on a Windows MT5 host) pull data, then build features + labels
+pip install -e ".[db,mt5]"
+python -m scripts.ingest --pairs EURUSD GBPUSD --timeframe H4
+python -m scripts.build_features
+python -m scripts.make_labels
+```
+
+> **MetaTrader5** is a Windows-only package and is an *optional* dependency.
+> The L0 client degrades gracefully on other platforms so features and labels
+> can be developed and tested anywhere; only live ingestion/execution needs MT5.
+
+---
+
+## Honesty note
+
+This is a sound, defensible **design** — not a guarantee of profit. The
+researched results it draws from were marginal and unverified (PPO Sharpe 0.73
+vs. Buy-and-Hold 0.66 at *identical* drawdown). Whether this system has a real
+edge is a question only the Layer-8 / validation harness can answer. **Build the
+validation harness before risking capital** — it will save you from your own
+backtests.

@@ -1,0 +1,24 @@
+# Layer 4 — Labeling parameters (TRAINING-TIME ONLY).
+# Barriers are ATR multiples (not fixed pips) — the explicit join between the
+# ATR volatility pillar and the triple-barrier labeling pillar.
+
+triple_barrier:
+  atr_lookback: 14              # which ATR feeds barrier width
+  tp_atr_mult: 2.0              # upper barrier  = entry + tp_atr_mult * ATR
+  sl_atr_mult: 2.0             # lower barrier  = entry - sl_atr_mult * ATR
+  vertical_bars: 12             # timeout horizon (12 H4 bars = ~2 trading days)
+  min_return: 0.0               # optional dead-band; |ret| below this -> neutral
+  side_aware: false             # true => meta-labeling mode (uses primary side)
+
+# Sample-uniqueness weighting (defends against overlapping-H4-label leakage).
+uniqueness:
+  enabled: true
+  apply_time_decay: true        # linearly decay weight of older observations
+  time_decay_last_weight: 0.5   # weight of the oldest sample relative to newest
+
+# Optional trend-scanning labels (slope t-value) for the trend-regime sub-model.
+trend_scanning:
+  enabled: false
+  min_horizon: 5
+  max_horizon: 20               # scan look-forward windows in [min, max] bars
+  t_value_threshold: 2.0        # |t| below threshold -> neutral

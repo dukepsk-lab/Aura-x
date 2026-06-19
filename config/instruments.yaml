@@ -1,0 +1,35 @@
+# Instrument universe (Roadmap v1 — two correlated USD majors).
+# point_value / pip_size follow standard 5-digit FX broker conventions.
+instruments:
+  EURUSD:
+    symbol: EURUSD
+    asset_class: fx_major
+    pip_size: 0.0001
+    digits: 5
+    contract_size: 100000        # 1 standard lot
+    min_lot: 0.01
+    lot_step: 0.01
+    base_ccy: EUR
+    quote_ccy: USD
+  GBPUSD:
+    symbol: GBPUSD
+    asset_class: fx_major
+    pip_size: 0.0001
+    digits: 5
+    contract_size: 100000
+    min_lot: 0.01
+    lot_step: 0.01
+    base_ccy: GBP
+    quote_ccy: USD
+
+# Timeframes pulled by L0. H4 is primary; D1 = regime context; M15 = execution context.
+timeframes:
+  primary: H4
+  regime_context: D1
+  execution_context: M15
+
+# The cross-pair block (L1) operates on this ordered leg pair.
+cross_pair:
+  leg_a: EURUSD
+  leg_b: GBPUSD
+  shared_risk: USD

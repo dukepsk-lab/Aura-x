@@ -1,0 +1,10 @@
+# Pinned-floor runtime requirements mirroring pyproject [project].dependencies.
+# For the full stack install the extras:  pip install -e ".[all]"
+numpy>=1.26
+pandas>=2.1
+scipy>=1.11
+pydantic>=2.6
+pydantic-settings>=2.2
+pyyaml>=6.0
+python-dateutil>=2.9
+structlog>=24.1

@@ -1,0 +1,33 @@
+# Layer 1 — Feature Engineering parameters.
+# Every feature is computed point-in-time (only from data available at bar close).
+# Lookbacks are expressed in BARS of the primary timeframe (H4) unless noted.
+
+volatility:
+  atr_lookbacks: [14, 24, 48]        # multiple horizons; 14 ~ classic, 48 ~ ~8 days on H4
+  atr_percentile_window: 252         # ATR-percentile = regime context (~6 weeks H4)
+  yang_zhang_window: 24
+  realized_vol_window: 24
+  realized_vol_annualization: 1512   # sqrt(6 bars/day * 252) for H4 -> annualized
+
+trend_memory:
+  hurst_window: 100                  # rescaled-range Hurst exponent
+  hurst_min_lag: 2
+  hurst_max_lag: 20
+  ker_window: 14                     # Kaufman Efficiency Ratio
+  mfdfa_window: 256                  # multifractal DFA (heavier; optional)
+  mfdfa_enabled: false               # off by default in v1 (cost vs. signal)
+
+cross_pair:
+  corr_window: 48                    # rolling EURUSD<->GBPUSD correlation
+  ratio_zscore_window: 96            # spread/ratio mean-reversion context
+  lead_lag_max_shift: 6              # bars to test for lead-lag relationship
+
+session:
+  # UTC hour boundaries; H4 bars are tagged by their OPEN hour.
+  asian:  { start: 0,  end: 8 }
+  london: { start: 7,  end: 16 }
+  ny:     { start: 12, end: 21 }
+  session_relative_vol_window: 120   # per-session volatility baseline
+
+# Columns the pipeline treats as raw inputs (must exist on the bar frame).
+ohlcv_columns: [open, high, low, close, volume]

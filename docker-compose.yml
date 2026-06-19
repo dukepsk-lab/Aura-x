@@ -1,0 +1,40 @@
+# Local development stack for Aura-X.
+#   docker compose up -d db    # TimescaleDB only (enough for L0/L1/L4 work)
+#   docker compose up -d       # + FastAPI service
+services:
+  db:
+    image: timescale/timescaledb:2.15.0-pg16
+    container_name: aurax-timescaledb
+    environment:
+      POSTGRES_DB: ${AURAX_DB__NAME:-aurax}
+      POSTGRES_USER: ${AURAX_DB__USER:-aurax}
+      POSTGRES_PASSWORD: ${AURAX_DB__PASSWORD:-change-me}
+    ports:
+      - "${AURAX_DB__PORT:-5432}:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      # Migrations in ./sql run in lexical order on first boot.
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AURAX_DB__USER:-aurax} -d ${AURAX_DB__NAME:-aurax}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aurax-api
+    env_file: .env
+    environment:
+      AURAX_DB__HOST: db
+    ports:
+      - "${AURAX_API__PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn aurax.api.main:app --host 0.0.0.0 --port 8000
+
+volumes:
+  timescale_data:
