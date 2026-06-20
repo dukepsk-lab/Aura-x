@@ -30,9 +30,16 @@ make fmt                         # ruff format
 make typecheck                   # mypy src
 python -m scripts.validate --demo   # run the validation gate on synthetic data (no DB/MT5)
 
+make doctor                      # scripts.preflight — data-pipeline readiness (MT5/DB/parquet)
 make db-up / make db-down        # TimescaleDB via docker compose (migrations in ./sql auto-run)
 make api                         # uvicorn aurax.api.main:app --reload
 ```
+
+Fetching real data: MT5 is the **source** (Windows-only pull); the **sink** is
+either TimescaleDB or DB-optional local **parquet** (`l0_data.store`, the
+`[files]` extra). `scripts.{ingest,build_features,make_labels}` take
+`--dest/--source {db,parquet}` so the L1→L4→validation path runs with no
+database. See `docs/data_ingestion.md`.
 
 Run a single test file/test the normal pytest way, e.g.
 `pytest tests/test_l6_risk.py -k correlation_cap -v`.

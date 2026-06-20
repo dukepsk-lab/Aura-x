@@ -1,4 +1,4 @@
-.PHONY: help install dev-install lint fmt typecheck test cov db-up db-down api ingest features labels clean
+.PHONY: help install dev-install lint fmt typecheck test cov db-up db-down api doctor ingest features labels clean
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -34,14 +34,17 @@ db-down:  ## Stop TimescaleDB
 api:  ## Run FastAPI dev server
 	uvicorn aurax.api.main:app --reload --port 8000
 
-ingest:  ## L0 — pull bars/ticks from MT5 into TimescaleDB
-	python -m scripts.ingest
+doctor:  ## Check data-pipeline readiness (MT5 / DB / parquet) before fetching real data
+	python -m scripts.preflight
 
-features:  ## L1 — build the feature matrix
-	python -m scripts.build_features
+ingest:  ## L0 — pull bars from MT5 into a store (ARGS="--dest parquet" for DB-optional)
+	python -m scripts.ingest $(ARGS)
 
-labels:  ## L4 — generate triple-barrier labels + uniqueness weights
-	python -m scripts.make_labels
+features:  ## L1 — build the feature matrix (ARGS="--source parquet --dest parquet" for DB-optional)
+	python -m scripts.build_features $(ARGS)
+
+labels:  ## L4 — triple-barrier labels + uniqueness weights (ARGS="--source parquet --dest parquet")
+	python -m scripts.make_labels $(ARGS)
 
 validate:  ## §5 — run the CPCV/walk-forward/holdout gate (use ARGS="--demo")
 	python -m scripts.validate $(ARGS)

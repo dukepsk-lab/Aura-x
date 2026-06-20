@@ -79,7 +79,7 @@ Aura-x/
 │   ├── enums.py         # Side, Regime, Timeframe, Session, BarrierTouch
 │   ├── types.py         # shared dataclasses (Bar, FeatureVector, Label, ...)
 │   ├── db/              # SQLAlchemy engine + repositories
-│   ├── l0_data/         # ✅ MT5 client, ingestion, TimescaleDB storage
+│   ├── l0_data/         # ✅ MT5 client, ingestion, TimescaleDB + DB-optional parquet stores
 │   ├── l1_features/     # ✅ volatility / trend-memory / cross-pair / session
 │   ├── l2_regime/       # ✅ Gaussian HMM + Hurst/KER gate + shock stand-down
 │   ├── l3_primary/      # ✅ SIDE ensemble — GBM/logistic + deep CNN/PatchTST/SSM (v2)
@@ -92,8 +92,8 @@ Aura-x/
 │   ├── validation/      # ✅ CPCV, walk-forward, holdout, baselines, deflated Sharpe
 │   └── api/             # FastAPI app (health · data · features · labels · monitor)
 ├── mql5/                # MT5 Expert Advisor + includes (execution side)
-├── scripts/             # ingest / build_features / make_labels / validate entry points
-└── tests/               # pytest suite (107 tests across L0–L8 + validation + lifecycle)
+├── scripts/             # preflight / ingest / build_features / make_labels / validate
+└── tests/               # pytest suite (118 tests across L0–L8 + validation + lifecycle)
 ```
 
 ---
@@ -113,19 +113,30 @@ pytest                      # L0–L8 + CPCV/walk-forward/holdout
 #     with `pip install -e ".[models]"` (LightGBM/CatBoost).
 python -m scripts.validate --demo     # expect NO-GO — the gate rejecting noise
 
-# 3. Spin up TimescaleDB and apply migrations
-docker compose up -d db     # migrations in ./sql auto-run on first boot
+# 3. Check data-pipeline readiness (guarded; never crashes)
+make doctor                 # python -m scripts.preflight — MT5 / DB / parquet go-no-go
 
-# 4. (on a Windows MT5 host) pull data, then build features + labels
+# 4a. (on a Windows MT5 host) pull data straight to TimescaleDB
+docker compose up -d db     # migrations in ./sql auto-run on first boot
 pip install -e ".[db,mt5]"
-python -m scripts.ingest --pairs EURUSD GBPUSD --timeframe H4
+python -m scripts.ingest --pairs EURUSD GBPUSD --timeframe H4 --dest db --ticks
 python -m scripts.build_features
 python -m scripts.make_labels
+
+# 4b. DB-optional: pull to local parquet, run the training path with NO database
+pip install -e ".[mt5,files]"   # on the Windows host: pull → data/bars/*.parquet
+python -m scripts.ingest --pairs EURUSD GBPUSD --timeframe H4 --dest parquet
+#   move data/ anywhere, then (needs only the [files] extra):
+python -m scripts.build_features --symbol EURUSD --source parquet --dest parquet
+python -m scripts.make_labels    --symbol EURUSD --source parquet --dest parquet
 ```
 
-> **MetaTrader5** is a Windows-only package and is an *optional* dependency.
-> The L0 client degrades gracefully on other platforms so features and labels
-> can be developed and tested anywhere; only live ingestion/execution needs MT5.
+> **MetaTrader5** is a Windows-only package and is an *optional* dependency, so
+> MT5 is always the data **source** (run the pull on a Windows host). The
+> **sink** is your choice: TimescaleDB (production) or local **parquet**
+> (`--dest parquet`, the `[files]` extra), which lets the L1→L4→validation path
+> run anywhere with no database. Full runbook:
+> [`docs/data_ingestion.md`](docs/data_ingestion.md).
 
 ---
 
