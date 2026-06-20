@@ -1,9 +1,15 @@
-"""L0 — pull bars (and optionally ticks) from MT5 into TimescaleDB.
+"""L0 — pull bars (and optionally ticks) from MT5 into a store.
 
-    python -m scripts.ingest --pairs EURUSD GBPUSD --timeframe H4 \
-        --start 2018-01-01 --ticks
+    # production: MT5 (Windows host) → TimescaleDB
+    python -m scripts.ingest --pairs EURUSD GBPUSD --timeframe H4 --start 2018-01-01 --ticks
 
-Requires the ``[mt5]`` (broker) and ``[db]`` extras and a configured ``.env``.
+    # DB-optional: MT5 (Windows host) → local parquet under ./data
+    python -m scripts.ingest --pairs EURUSD GBPUSD --timeframe H4 --start 2018-01-01 --dest parquet
+
+The pull itself requires the ``[mt5]`` extra and runs on a Windows MT5 host.
+``--dest db`` needs the ``[db]`` extra + a configured ``.env``; ``--dest parquet``
+needs only the ``[files]`` extra and writes ``data/bars/{symbol}/{tf}.parquet``,
+which the L1/L4 scripts can then read with no database.
 """
 
 from __future__ import annotations
@@ -13,7 +19,7 @@ from datetime import UTC, datetime
 
 from aurax.config import get_settings, load_params
 from aurax.enums import Timeframe
-from aurax.l0_data import Ingestor
+from aurax.l0_data import Ingestor, make_bar_store
 from aurax.logging import configure_logging, get_logger
 
 log = get_logger("scripts.ingest")
@@ -33,17 +39,32 @@ def main() -> None:
     ap.add_argument("--start", type=_parse_date, default=_parse_date("2018-01-01"))
     ap.add_argument("--end", type=_parse_date, default=datetime.now(UTC))
     ap.add_argument("--ticks", action="store_true", help="also ingest tick/spread history")
+    ap.add_argument(
+        "--dest", choices=["db", "parquet"], default="db",
+        help="where to persist bars (parquet = DB-optional local files)",
+    )
+    ap.add_argument(
+        "--out", default=None,
+        help="parquet root for --dest parquet (default: ./data)",
+    )
     args = ap.parse_args()
 
     configure_logging(get_settings().log_level)
-    summary = Ingestor().ingest_universe(
+
+    with_ticks = args.ticks
+    if args.dest == "parquet" and with_ticks:
+        log.warning("ticks_require_db_sink", note="tick history is DB-only; skipping --ticks")
+        with_ticks = False
+
+    store = make_bar_store(args.dest, args.out)
+    summary = Ingestor(bar_repo=store).ingest_universe(
         pairs=args.pairs,
         timeframes=[Timeframe(args.timeframe)],
         start=args.start,
         end=args.end,
-        with_ticks=args.ticks,
+        with_ticks=with_ticks,
     )
-    log.info("ingest_complete", summary=summary)
+    log.info("ingest_complete", dest=args.dest, summary=summary)
     for key, count in summary.items():
         print(f"  {key:<18} {count:>10,} rows")
 

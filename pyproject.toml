@@ -54,6 +54,11 @@ deep = [
 mt5 = [
     "MetaTrader5>=5.0.45",
 ]
+# DB-optional local stores: persist MT5-pulled bars/features/labels as parquet
+# so the L1→L4→validation path can run anywhere without TimescaleDB.
+files = [
+    "pyarrow>=15.0",
+]
 # Layer 8 monitoring
 monitoring = [
     "python-telegram-bot>=21.0",
@@ -67,7 +72,7 @@ dev = [
 ]
 # Convenience: everything needed to run the full stack locally.
 all = [
-    "aurax[db,api,models,monitoring,dev]",
+    "aurax[db,api,models,monitoring,files,dev]",
 ]
 
 [tool.setuptools.packages.find]
